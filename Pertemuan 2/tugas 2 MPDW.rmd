@@ -1,0 +1,252 @@
+---
+title: "Tugas 2 MPDW"
+author: "Azzahra Adelia Putri"
+date: "2023-09-10"
+output: html_document
+---
+
+## Pemanggilan Packages
+```{r}
+library(rio)
+library(readxl)
+library(dplyr)
+library(TTR)
+library(forecast)
+library(lmtest)
+library(orcutt)
+library(HoRM)
+```
+
+## Input Data
+Data yang digunakan adalah data bensin periode tahun 2020
+```{r}
+data <- import("https://raw.githubusercontent.com/azzhraadelia/PrakMPDW/main/Pertemuan%202/Data%20tugas%202.csv")
+View(data)
+```
+
+# Peubah yang digunakan
+```{r}
+open <- data$open
+high <- data$high
+low <- data$low
+```
+
+## Eksplorasi Data
+Membentuk objek time series
+```{r}
+open.ts <- ts(open)
+high.ts <- ts(high)
+low.ts <- ts(low)
+```
+
+# Membuat plot antar peubah x dan peubah y
+Scatter plot Repsol High vs Repsol Open
+```{r}
+plot(high, open, pch = 20, col = "yellow",
+     main = "Scatter Plot Repsol High vs Repsol Open",
+     xlab = "Open",
+     ylab = "High")
+```
+
+Scatter plot Repsol High vs Repsol Low
+```{r}
+plot(high, low, pch = 20, col = "yellow",
+     main = "Scatter Plot Repsol High vs Repsol Low",
+     xlab = "Low",
+     ylab = "High")
+```
+
+Melihat Korelasi
+```{r}
+library(corrplot)
+matriks <- cor(data)
+corrplot.mixed(matriks, upper = 'circle', lower = 'number', order = "original",
+               tl.col="black", tl.pos = "lt",diag = 'l',
+               number.digits=2, number.cex=1)
+```
+Berdasarkan scatter plot Repsol High vs Repsol Open di atas, terlihat ada hubungan/ korelasi positif antar peubah Repsol High dan Repsol Open, terlihat titik titik pada plot yang naik ke arah kanan atas. Hal tersebut juga dibuktikan dengan hasil perhitungan korelasi sebesar 1.
+
+Berdasarkan scatter plot Repsol High vs Repsol Low di atas, terlihat ada hubungan/ korelasi positif antar peubah Repsol High dan Repsol Low, terlihat titik titik pada plot yang naik ke arah kanan atas. Hal tersebut juga dibuktikan dengan hasil perhitungan korelasi sebesar 1.
+
+Di sini saya mengambil peubah Repsol High sebagai peubah respon dan peubah Open dan Close sebagai peubah penjelas.
+
+# Membuat plot time series
+```{r}
+ts.plot(high.ts, xlab="Time Period", ylab="Repsol High", main="Time Series Plot of Repsol High")
+points(high.ts)
+
+ts.plot(open.ts, xlab="Time Period", ylab="Repsol Open", main="Time Series Plot of Repsol Open")
+points(open.ts)
+
+ts.plot(low.ts, xlab="Time Period", ylab="Repsol Low", main="Time Series Plot of Gas Repsol Low")
+points(low.ts)
+```
+
+## Regresi
+# Pembuatan Model Regresi
+Model regresi
+```{r}
+model <- lm (high~open+low, data=data)
+model
+summary(model)
+```
+Model yang dihasilkan ialah $$y_i=-0.08375+0.46014 x1_t+0.57803x2_t$$ Berdasarkan ringkasan model dapat diketahui bahwa hasil uji F memiliki *p-value* \< $\alpha$ (5%). Artinya, minimal terdapat satu variabel yang berpengaruh nyata terhadap model. Hasil uji-t parsial parameter regresi, yaitu koefisien regresi juga menunjukkan hal yang sama, yaitu memiliki *p-value* \< $\alpha$ (5%) sehingga nyata dalam taraf 5%. Selanjutnya dapat dilihat juga nilai $R^2=0 0.9948$. Artinya, sebesar 99.48% keragaman nilai Repsol High dapat dijelaskan oleh peubah Repsol Open dan Repsol Low. Hasil ini menunjukkan hasil yang bagus, seolah mendapatkan hasil terbaik. Namun, kita perlu melakukan uji terhadap sisaannya seperti berikut ini.
+
+# sisaan dan fitted value
+```{r}
+sisaan <- residuals(model)
+fitValue<- predict(model)
+```
+
+# Diagnostik dengan eksploratif
+```{r}
+par(mfrow = c(2,2))
+qqnorm(sisaan)
+qqline(sisaan, col = "steelblue", lwd = 2)
+plot(fitValue, sisaan, col = "steelblue", pch = 20, xlab = "Sisaan", ylab = "Fitted Values", main = "Sisaan vs Fitted Values")
+abline(a = 0, b = 0, lwd = 2)
+hist(sisaan, col = "steelblue")
+plot(seq(1,100,1), sisaan, col = "steelblue", pch = 20, xlab = "Sisaan", ylab = "Order", main = "Sisaan vs Order")
+lines(seq(1,100,1), sisaan, col = "red")
+abline(a = 0, b = 0, lwd = 2)
+```
+
+#Melihat Sisaan Menyebar Normal/Tidak
+H0: sisaan mengikuti sebaran normal
+H1: sisaan tidak mengikuti sebaran normal
+```{r}
+ks.test(sisaan, "pnorm", mean=mean(sisaan), sd=sd(sisaan))
+```
+Berdasarkan uji formal Kolmogorov-Smirnov didapatkan nilai p-value > alpha (5%). Artinya, cukup bukti untuk menyatakan sisaan berdistribusi normal.
+
+# ACF dan PACF identifikasi autokorelasi
+```{r}
+par(mfrow = c(1,2))
+acf(sisaan)
+pacf(sisaan)
+```
+Berdasarkan plot ACF dan PACF, terlihat ada yang tidak di dalam rentang batas, sehingga mengindikasikan terjadinya autokorelasi. Namun, untuk lebih memastikan akan dilakukan uji formal dengan uji Durbin Watson.
+
+#Deteksi autokorelasi dengan uji-Durbin Watson
+H0: tidak ada autokorelasi
+H1: ada autokorelasi
+```{r}
+dwtest(model)
+```
+Berdasarkan hasil uji menggunakan Durbin-Watson, didapatkan nilai p-value < alpha(5%). Disimpulkan bahwa tolak H0, cukup bukti untuk mengatakan adanya autokorelasi. Oleh karena itu, diperlukan penanganan autokorelasi. Penanganan yang akan digunakan menggunakan dua metode, yaitu Cochrane-Orcutt dan Hildret-Lu.
+
+## Penanganan Autokorelasi
+# Metode Cochrane-Orcutt
+Penanganan metode Cochrane-Orcutt dapat dilakukan dengan bantuan packages Orcutt pada aplikasi `R` maupun secara manual. Berikut ini ditampilkan cara menggunakan bantuan `library` *packages* `Orcutt`.
+```{r}
+modelCO<-cochrane.orcutt(model)
+modelCO
+```
+Hasil keluaran model setelah dilakukan penanganan adalah $$y_i=-0.080497+0.451338x1_t+0.586590x2_t$$ dengan p-value sebesar 0.35 > alpha (5%), artinya belum cukup bukti menyatakan bahwa sisaan terdapat autokorelasi pada taraf nyata 5%. untuk nilai  $ρ ̂$ optimum yang digunakan adalah 0.243669. Nilai tersebut dapat diketahui dengan syntax berikut.
+
+#Rho optimum
+```{r}
+rho<- modelCO$rho
+rho
+```
+
+Selanjutnya akan dilakukan transformasi secara manual dengan syntax berikut ini.
+# Transformasi Manual
+```{r}
+high.trans <- high[-1]-high[-100]*rho
+open.trans <- open[-1]-open[-100]*rho
+low.trans <- low[-1]-low[-100]*rho
+modelCOmanual <- lm(high.trans~open.trans+low.trans)
+summary(modelCOmanual)
+```
+Hasil model transformasi bukan merupakan model sesungguhnya. Koefisien regresi masih perlu dicari kembali mengikuti $β_0^*=β_0+ρ ̂β_0$ dan $β_1^*=β_1$.
+
+#Mencari Penduga Koefisien Regresi setelah Transformasi ke Persamaan Awal
+```{r}
+b0bintang <- modelCOmanual$coefficients[1]
+b0 <- b0bintang/(1-rho)
+b1.1 <- modelCOmanual$coefficients[2]
+b2.1 <- modelCOmanual$coefficients[3]
+b0
+b1.1
+b2.1
+```
+Hasil perhitungan koefisien regresi tersebut akan menghasilkan hasil yang sama dengan model yang dihasilkan menggunakan *packages*.
+
+## Metode Hildreth-Lu
+Penanganan kedua adalah menggunakan metode Hildreth-Lu. Metode ini akan mencari nilai SSE terkecil dan dapat dicari secara manual maupun menggunakan packages. Jika menggunakan packages, gunakan `library` *packages* `HORM`.
+
+#Penanganan Autokorelasi Hildreth lu
+# Hildreth-Lu
+```{r}
+hildreth.lu.func<- function(r, model){
+  x1 <- model.matrix(model)[,2]
+  x2 <- model.matrix(model)[,3]
+  y <- model.response(model.frame(model))
+  n <- length(y)
+  t <- 2:n
+  y <- y[t]-r*y[t-1]
+  x1 <- x1[t]-r*x1[t-1]
+  x2 <- x2[t]-r*x2[t-1]
+  
+  return(lm(y~x1+x2))
+}
+
+#Pencariab rho yang meminimumkan SSE
+r <- c(seq(0.1,0.9, by= 0.1))
+tab <- data.frame("rho" = r, "SSE" = sapply(r, function(i){deviance(hildreth.lu.func(i, model))}))
+tab
+```
+Pertama-tama akan dicari di mana kira-kira $ρ$ yang menghasilkan SSE minimum. Pada hasil di atas terlihat $ρ$ minimum ketika 0.2. Namun, hasil tersebut masih kurang teliti sehingga akan dicari kembali $ρ$ yang lebih optimum dengan ketelitian yang lebih. Jika sebelumnya jarak antar $ρ$ yang dicari adalah 0.1, kali ini jarak antar $ρ$ adalah 0.001 dan dilakukan pada selang 0.1 sampai dengan 0.2.
+
+# Rho optimum di sekitar 0.2
+```{r}
+rOpt <- seq(0.1,0.2, by= 0.001)
+tabOpt <- data.frame("rho" = rOpt, "SSE" = sapply(rOpt, function(i){deviance(hildreth.lu.func(i, model))}))
+head(tabOpt[order(tabOpt$SSE),])
+```
+
+# Grafik SSE optimum
+```{r}
+par(mfrow = c(1,1))
+plot(tab$SSE ~ tab$rho , type = "l", xlab = "Rho", ylab = "SSE")
+abline(v = tabOpt[tabOpt$SSE==min(tabOpt$SSE),"rho"], lty = 2, col="red",lwd=2)
+text(x=0.200, y=0.5086693, labels = "rho=0.200", cex = 0.8)
+```
+Perhitungan yang dilakukan aplikasi `R` menunjukkan bahwa nilai $ρ$ optimum, yaitu saat SSE terkecil terdapat pada nilai $ρ=0.5086693$. Hal tersebut juga ditunjukkan pada plot. Selanjutnya, model dapat didapatkan dengan mengevaluasi nilai $ρ$ ke dalam fungsi `hildreth.lu.func`, serta dilanjutkan dengan pengujian autokorelasi dengan uji Durbin-Watson. Namun, setelah pengecekan tersebut tidak lupa koefisien regresi tersebut digunakan untuk transformasi balik. Persamaan hasil transformasi itulah yang menjadi persamaan sesungguhnya.
+
+# Model Terbaik
+```{r}
+modelHL <- hildreth.lu.func(0.200, model)
+summary(modelHL)
+```
+
+# Transformasi Balik
+```{r}
+cat("y = ", coef(modelHL)[1]/(1-0.300), "+", coef(modelHL)[2],"x1","+", coef(modelHL)[3],"x2", sep = "")
+```
+Setelah dilakukan tranformasi balik, didapatkan model dengan metode Hildreth-Lu sebagai berikut.
+$$y_i=-0.080497+0.451338x1_t+0.586590x2_t$$
+
+# Deteksi Autokorelasi
+```{r}
+dwtest(modelHL)
+```
+Hasil uji Durbin-Watson juga menunjukkan bahwa *p-value* sebesar $0.2112$, di mana *p-value* \> $\alpha=5%$. Artinya tak tolak $H_0$ atau belum cukup bukti menyatakan bahwa ada autokorelasi dalam data nilai volume dengan metode Hildreth-Lu pada taraf nyata 5%.
+
+# Perbandingan Keakuratan
+```{r}
+sseModelawal <- anova(model)$`Sum Sq`[c(-1,-2)]
+sseModelCO <- anova(modelCOmanual)$`Sum Sq`[c(-1,-2)]
+sseModelHL <- anova(modelHL)$`Sum Sq`[c(-1,-2)]
+mseModelawal <- sseModelawal/length(high.trans)
+mseModelCO <- sseModelCO/length(high.trans)
+mseModelHL <- sseModelHL/length(high.trans)
+akurasi <- matrix(c(sseModelawal,sseModelCO,sseModelHL,
+                    mseModelawal,mseModelCO,mseModelHL),nrow=2,ncol=3,byrow = T)
+colnames(akurasi1) <- c("Model Awal", "Model Cochrane-Orcutt", "Model Hildreth-Lu")
+row.names(akurasi1) <- c("SSE","MSE")
+akurasi
+```
+# Simpulan
+Autokorelasi yang terdapat pada data Repsol High terjadi akibat adanya korelasi di antara unsur penyusunnya. Adanya autokorelasi menyebabkan model regresi kurang baik karena akan meingkatkan galatnya. Autokorelasi dapat dideteksi secara eksploratif melalui plot sisaan, ACF, dan PACF, serta dengan uji formal Durbin-Watson. Namun, autokorelasi tersebut dapat ditangani dengan metode Cochrane-Orcutt dan Hildreth-Lu. Kedua metode menghasilkan nilai SSE yang sama, artinya keduanya baik untuk digunakan
