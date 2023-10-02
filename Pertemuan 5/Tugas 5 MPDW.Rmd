@@ -1,0 +1,129 @@
+---
+title: "Tugas 5 MPDW"
+author: "Azzahra Adelia Putri"
+date: "2023-10-02"
+output: html_document
+---
+## Pemanggilan Packages
+```{r}
+library(ggplot2)
+library(tsibble)
+library(tseries)
+library(MASS)
+library(readxl)
+```
+## Impor Data
+```{r}
+data <- read_excel("C:/Users/Asus/Downloads/data suhu palembang.xlsx", sheet=2)
+head(data)
+```
+## Semua Data
+### Ubah ke data Time Series
+```{r}
+data.ts <- ts(data$temp)
+```
+### Plot Time Series
+```{r}
+ts.plot(data.ts, xlab="Time Period ", ylab="Suhu Palembang", 
+        main = "Time Series Plot")
+points(data.ts)
+mean(data.ts)
+```
+Plot deret waktu di atas menunjukkan bahwa data stasioner dalam rataan, ditandai dengan data yang menyebar di sekitar nilai tengahnya (28.5) dan tidak stasioner dalam ragam, ditandai dengan lebar pita yang cenderung berbeda.
+
+### Plot ACF
+```{r}
+acf(data.ts)
+```
+Berdasarkan plot ACF, terlihat bahwa plot ACF pada data tersebut cenderung *tails off*
+
+### Plot ADF
+```{r}
+tseries::adf.test(data.ts)
+```
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.01 yang lebih kecil dari taraf nyata 5% sehingga tolak $H_0$ dan menandakan bahwa data stasioner dalam rataan. Hal ini sesuai dengan hasil eksplorasi menggunakan plot time series dan plot ACF.
+
+### Plot Box Cox
+```{r}
+index <- seq(1:200)
+bc = boxcox(data.ts~index, lambda = seq(0,4,by=0.01))
+#Nilai Rounded Lambda
+lambda <- bc$x[which.max(bc$y)]
+lambda
+#SK
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+Gambar di atas menunjukkan nilai *rounded value* ($\lambda$) optimum sebesar **4** dan pada selang kepercayaan 95% nilai memiliki batas bawah **0,00** dan batas atas **4**. Selang tersebut tidak memuat nilai satu sehingga dapat dikatakan bahwa data bangkitan tidak stasioner dalam ragam.
+
+Kesimpulan : Tidak Stasioner dalam Ragam, Stasioner dalam Rataan
+
+## Partisi Data
+### Bagian 1
+```{r}
+data.ts1 <- data.ts[1:126] |> ts()
+mean(data.ts1)
+var(data.ts1)
+```
+#### Plot Time Series
+```{r}
+ts.plot(data.ts1, xlab="Time Period ", ylab="Suhu Palembang", 
+        main = "Time Series Plot")
+points(data.ts1)
+mean(data.ts1)
+```
+Berdasarkan plot time series tersebut, terlihat bahwa data tidak stasioner dalam rataan, ditandai dengan adanya trend pada data dan tidak stasioner dalam ragam, ditandai dengan adanya perbedaan lebar pita pada plot.
+
+#### Plot ACF
+```{r}
+acf(data.ts1)
+```
+Berdasarkan plot ACF, terlihat bahwa plot ACF pada data tersebut menurun secara perlahan (*tails off slowly*) yang menandakan data tidak stasioner dalam rataan
+
+#### Plot ADF
+```{r}
+tseries::adf.test(data.ts1)
+```
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.06706 yang lebih besar dari taraf nyata 5% dan menandakan bahwa data tidak stasioner dalam rataan. Hal ini sesuai dengan hasil eksplorasi menggunakan plot time series dan plot ACF
+
+Kesimpulan : Tidak Stasioner dalam Ragam, Tidak Stasioner dalam Rataan
+
+### Bagian 2
+```{r}
+data.ts2 <- data.ts[127:200] |> ts()
+mean(data.ts2)
+var(data.ts2)
+```
+#### Plot Time Series
+```{r}
+ts.plot(data.ts2, xlab="Time Period ", ylab="Suhu Palembang", 
+        main = "Time Series Plot")
+points(data.ts2)
+mean(data.ts2)
+```
+Berdasarkan plot time series tersebut, terlihat bahwa data tidak stasioner dalam rataan, ditandai dengan adanya trend pada data dan tidak stasioner dalam ragam, ditandai dengan adanya perbedaan lebar pita pada plot.
+
+#### Plot ACF
+```{r}
+acf(data.ts2)
+```
+Berdasarkan plot ACF, terlihat bahwa plot ACF pada data tersebut menurun secara perlahan (*tails off slowly*) yang menandakan data tidak stasioner dalam rataan
+
+#### Plot ADF
+```{r}
+tseries::adf.test(data.ts1)
+```
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.07454 yang lebih besar dari taraf nyata 5% dan menandakan bahwa data tidak stasioner dalam rataan. Hal ini sesuai dengan hasil eksplorasi menggunakan plot time series dan plot ACF
+
+Kesimpulan : Tidak Stasioner dalam Ragam, Tidak Stasioner dalam Rataan
